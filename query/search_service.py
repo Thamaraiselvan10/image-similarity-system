@@ -89,45 +89,44 @@ def search_image(image_input, threshold=0.78):
     t_search = time.time() - t2
     logger.info(f"Time to search: {t_search:.4f}s")
     
-    # distances[0][0] is the inner product (cosine similarity) since vectors are L2 normalized.
-    # The first result (index 0) is the best match for IndexFlatIP (descending order).
-    best_score = float(distances[0][0])
-    best_id = int(indices[0][0])
+    # distances[0] and indices[0] contain the top-k results
+    matches = []
     
-    logger.info(f"Search result ID returned: {best_id}")
-    logger.info(f"Distance value: {best_score}")
-    print("Similarity score:", best_score)
-    
-    # 5. Apply Threshold Logic
-    if best_score >= threshold:
-        # 6. Fetch Metadata
-        logger.info("Fetching metadata from SQLite...")
-        try:
-            conn = sqlite3.connect(DB_PATH)
-            cursor = conn.cursor()
-            cursor.execute("SELECT source_url, file_path FROM images WHERE id = ?", (best_id,))
-            row = cursor.fetchone()
-            conn.close()
+    try:
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.cursor()
+        
+        for i in range(k):
+            score = float(distances[0][i])
+            match_id = int(indices[0][i])
             
-            source_url = row[0] if row else "Unknown Source"
-            file_path = row[1] if row else None
-            
-            logger.info(f"Matched file_path: {file_path}")
-            logger.info("Search completed")
-            # 7. Return Final Result (FOUND)
-            return {
-                "status": "FOUND",
-                "similarity": round(best_score, 4),
-                "source_url": source_url,
-                "file_path": file_path
-            }
-        except Exception as e:
-            print(f"Error fetching metadata for ID {best_id}: {e}")
-            logger.info("Search completed")
-            return {"status": "SAFE"}
-            
-    # 7. Return Final Result (SAFE)
+            if score >= threshold:
+                cursor.execute("SELECT source_url, file_path FROM images WHERE id = ?", (match_id,))
+                row = cursor.fetchone()
+                
+                source_url = row[0] if row else "Unknown Source"
+                file_path = row[1] if row else None
+                
+                matches.append({
+                    "similarity": round(score, 4),
+                    "source_url": source_url,
+                    "file_path": file_path
+                })
+                
+        conn.close()
+    except Exception as e:
+        logger.error(f"Error fetching metadata: {e}")
+        
     logger.info("Search completed")
-    return {
-        "status": "SAFE"
-    }
+    
+    if len(matches) > 0:
+        logger.info(f"Found {len(matches)} valid matches above threshold")
+        return {
+            "status": "FOUND",
+            "matches": matches
+        }
+    else:
+        return {
+            "status": "SAFE"
+        }
+

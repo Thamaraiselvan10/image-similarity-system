@@ -14,8 +14,8 @@ export default function MatchFoundPopup({ scanResult, onViewDetails, onDismiss }
         if (e.target === overlayRef.current) onDismiss();
     };
 
-    const score = Math.round((scanResult?.similarity || 0) * 100);
-
+    const matches = scanResult?.matches || [];
+    const score = matches.length > 0 ? Math.round((matches[0].similarity || 0) * 100) : 0;
     return (
         <div className="match-popup-overlay" ref={overlayRef} onClick={handleOverlayClick}>
             <div className="match-popup pop-in">

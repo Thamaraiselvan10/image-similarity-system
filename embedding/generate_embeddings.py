@@ -13,7 +13,7 @@ class EmbeddingGenerator:
     """
     Handles loading the OpenCLIP model and generating embeddings for images.
     """
-    def __init__(self, model_name="ViT-L-14", pretrained="laion2b_s32b_b82k"): # laion2b_s32b_b82k is the common pretain for ViT-L
+    def __init__(self, model_name="ViT-B-32", pretrained="laion2b_s34b_b79k"):
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         print(f"Loading OpenCLIP model '{model_name}' on {self.device}...")
         self.model, _, self.preprocess = open_clip.create_model_and_transforms(

@@ -4,15 +4,19 @@ export default function ResultStep({ isActive, scanResult, uploadedImage, onRese
     if (!isActive) return null;
 
     const isSafe = scanResult?.status !== 'FOUND';
-    const score = isSafe ? 0 : Math.round((scanResult?.similarity || 0) * 100);
-    const sourceUrl = scanResult?.source_url || '#';
+    const matches = scanResult?.matches || [];
+    const topMatch = matches.length > 0 ? matches[0] : null;
+    const score = topMatch ? Math.round((topMatch.similarity || 0) * 100) : 0;
+    const sourceUrl = topMatch?.source_url || '#';
 
-    // Build matched image URL from the file_path returned by the backend
-    let matchedImageUrl = null;
-    if (scanResult?.file_path) {
-        const filename = scanResult.file_path.split('/').pop().split('\\').pop();
-        matchedImageUrl = `http://localhost:8000/matched-images/${encodeURIComponent(filename)}`;
-    }
+    // Helper to build matched image URL from file_path 
+    const getImageUrl = (filePath) => {
+        if (!filePath) return null;
+        const filename = filePath.split('/').pop().split('\\').pop();
+        return `http://localhost:8000/matched-images/${encodeURIComponent(filename)}`;
+    };
+
+    const matchedImageUrl = topMatch ? getImageUrl(topMatch.file_path) : null;
 
     // Auto scroll to results
     setTimeout(() => {
@@ -107,6 +111,52 @@ export default function ResultStep({ isActive, scanResult, uploadedImage, onRese
                             </a>
                         </div>
                     </div>
+
+                    {/* Additional Matches Grid */}
+                    {matches.length > 1 && (
+                        <div className="other-matches" style={{ marginTop: '32px' }}>
+                            <h4 style={{ fontSize: '0.95rem', fontWeight: 700, color: 'var(--text-pri)', marginBottom: '16px' }}>
+                                Other Potential Matches ({matches.length - 1})
+                            </h4>
+                            <div className="matches-grid" style={{
+                                display: 'grid',
+                                gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))',
+                                gap: '16px'
+                            }}>
+                                {matches.slice(1).map((m, i) => {
+                                    const mScore = Math.round((m.similarity || 0) * 100);
+                                    return (
+                                        <div key={i} className="mini-match-card" style={{
+                                            border: '1px solid var(--border)',
+                                            borderRadius: '12px',
+                                            padding: '10px',
+                                            background: '#fff',
+                                            display: 'flex',
+                                            flexDirection: 'column',
+                                            gap: '8px'
+                                        }}>
+                                            <div style={{
+                                                aspectRatio: '1',
+                                                borderRadius: '8px',
+                                                overflow: 'hidden',
+                                                background: '#f0f2f8'
+                                            }}>
+                                                <img src={getImageUrl(m.file_path)} alt={`Match ${i + 2}`} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                                            </div>
+                                            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-pri)' }}>
+                                                {mScore}% Match
+                                            </div>
+                                            <div style={{ fontSize: '0.75rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                <a href={m.source_url} target="_blank" rel="noreferrer" style={{ color: 'var(--text-sec)', textDecoration: 'none' }}>
+                                                    {m.source_url}
+                                                </a>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
                 </div>
             )}
 
