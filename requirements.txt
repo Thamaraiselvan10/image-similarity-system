@@ -3,3 +3,6 @@ uvicorn
 python-multipart
 faiss-cpu==1.7.4
 numpy<2
+torch
+open_clip-torch
+Pillow

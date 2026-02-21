@@ -1,0 +1,174 @@
+{
+    "name": "Image Takedown Guide (Gemini)",
+    "nodes": [
+        {
+            "parameters": {
+                "httpMethod": "POST",
+                "path": "report-guide",
+                "responseMode": "responseNode",
+                "options": {}
+            },
+            "id": "c5f9a028-c094-4ee3-a5de-60164635c778",
+            "name": "Webhook",
+            "type": "n8n-nodes-base.webhook",
+            "typeVersion": 1,
+            "position": [
+                608,
+                240
+            ],
+            "webhookId": "report-guide"
+        },
+        {
+            "parameters": {
+                "jsCode": "const body = $input.first().json.body || {};\nconst url = (body.url || '').toLowerCase();\n\nlet platform = 'Unknown';\nlet icon = '🌐';\nlet color = '#6B7280';\n\nif (url.includes('instagram.com')) { platform = 'Instagram'; icon = '📸'; color = '#E1306C'; }\nelse if (url.includes('twitter.com') || url.includes('x.com')) { platform = 'Twitter / X'; icon = '🐦'; color = '#000000'; }\nelse if (url.includes('reddit.com')) { platform = 'Reddit'; icon = '🤖'; color = '#FF4500'; }\nelse if (url.includes('facebook.com') || url.includes('fb.com')) { platform = 'Facebook'; icon = '📘'; color = '#1877F2'; }\nelse if (url.includes('pinterest.com')) { platform = 'Pinterest'; icon = '📌'; color = '#E60023'; }\nelse if (url.includes('tiktok.com')) { platform = 'TikTok'; icon = '🎵'; color = '#010101'; }\nelse if (url.includes('youtube.com') || url.includes('youtu.be')) { platform = 'YouTube'; icon = '▶️'; color = '#FF0000'; }\nelse if (url.includes('snapchat.com')) { platform = 'Snapchat'; icon = '👻'; color = '#FFFC00'; }\nelse if (url.includes('linkedin.com')) { platform = 'LinkedIn'; icon = '💼'; color = '#0A66C2'; }\n\nreturn [{ json: { original_url: body.url, platform, icon, color } }];"
+            },
+            "id": "a2dd495c-4d6c-423a-82e4-563f2cb3df37",
+            "name": "Detect Platform",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                832,
+                240
+            ]
+        },
+        {
+            "parameters": {
+                "promptType": "define",
+                "text": "=You are an expert digital rights assistant. Always respond with raw JSON only — no markdown, no code fences, no extra text.\n\nThe image was found on {{ $json.platform }} at this URL: {{ $json.original_url }}.\n\nGenerate a comprehensive, empathetic, step-by-step guide for reporting or removing this image.\n\nRespond with ONLY this exact JSON structure:\n{\n  \"steps\": [\"Step 1: ...\", \"Step 2: ...\", \"Step 3: ...\"],\n  \"official_link\": \"direct URL to the platform report form\",\n  \"dmca_link\": \"direct URL to DMCA or copyright removal form\",\n  \"tip\": \"one key professional tip for faster resolution\",\n  \"estimated_time\": \"e.g. 24-48 hours\",\n  \"escalation\": \"what to do if the platform does not respond\"\n}\n\nMake steps very detailed and specific to {{ $json.platform }} — include exact button names, menu paths, and form fields. Include 6-8 steps."
+            },
+            "id": "b35ab367-439f-4c57-b7f9-cbc3e0b19f1e",
+            "name": "Basic LLM Chain",
+            "type": "@n8n/n8n-nodes-langchain.chainLlm",
+            "typeVersion": 1.4,
+            "position": [
+                1056,
+                240
+            ]
+        },
+        {
+            "parameters": {
+                "modelName": "models/gemini-2.0-flash-001",
+                "options": {
+                    "maxOutputTokens": 1000,
+                    "temperature": 0.3
+                }
+            },
+            "id": "588a4432-5c22-4918-89d2-2d5655ea13da",
+            "name": "Gemini Chat Model",
+            "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+            "typeVersion": 1,
+            "position": [
+                1056,
+                448
+            ],
+            "credentials": {
+                "googlePalmApi": {
+                    "id": "cLRymeALXqb4mO5n",
+                    "name": "Google Gemini(PaLM) Api account"
+                }
+            }
+        },
+        {
+            "parameters": {
+                "jsCode": "const item = $input.first().json;\nconst prevItem = $('Detect Platform').first().json;\n\n// Basic LLM Chain returns result in item.text\nlet aiData = {};\ntry {\n    const raw = (item.text || '').replace(/```json|```/g, '').trim();\n    aiData = JSON.parse(raw);\n} catch(e) {\n    aiData = {\n        steps: ['Unable to parse AI response. Please try again.'],\n        official_link: 'https://www.dmca.com/takedown.aspx',\n        dmca_link: 'https://stopncii.org',\n        tip: 'Contact the platform directly via their Help Center.',\n        estimated_time: 'Varies',\n        escalation: 'Contact a digital rights organization for assistance.'\n    };\n}\n\nreturn [{\n    json: {\n        platform: prevItem.platform,\n        icon: prevItem.icon,\n        color: prevItem.color,\n        steps: Array.isArray(aiData.steps) ? aiData.steps : [],\n        official_link: aiData.official_link || 'https://www.dmca.com/takedown.aspx',\n        dmca_link: aiData.dmca_link || 'https://stopncii.org',\n        tip: aiData.tip || '',\n        estimated_time: aiData.estimated_time || '',\n        escalation: aiData.escalation || ''\n    }\n}];"
+            },
+            "id": "75f39737-ee34-4ed4-8359-288e81b18763",
+            "name": "Parse AI Response",
+            "type": "n8n-nodes-base.code",
+            "typeVersion": 2,
+            "position": [
+                1280,
+                240
+            ]
+        },
+        {
+            "parameters": {
+                "respondWith": "json",
+                "responseBody": "={{ JSON.stringify($json) }}",
+                "options": {
+                    "responseHeaders": {
+                        "entries": [
+                            {
+                                "name": "Access-Control-Allow-Origin",
+                                "value": "*"
+                            },
+                            {
+                                "name": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ]
+                    }
+                }
+            },
+            "id": "1386fa05-eb32-42ca-b8f7-5d813952f955",
+            "name": "Respond to Webhook",
+            "type": "n8n-nodes-base.respondToWebhook",
+            "typeVersion": 1,
+            "position": [
+                1504,
+                240
+            ]
+        }
+    ],
+    "connections": {
+        "Webhook": {
+            "main": [
+                [
+                    {
+                        "node": "Detect Platform",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Detect Platform": {
+            "main": [
+                [
+                    {
+                        "node": "Basic LLM Chain",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Gemini Chat Model": {
+            "ai_languageModel": [
+                [
+                    {
+                        "node": "Basic LLM Chain",
+                        "type": "ai_languageModel",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Basic LLM Chain": {
+            "main": [
+                [
+                    {
+                        "node": "Parse AI Response",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        },
+        "Parse AI Response": {
+            "main": [
+                [
+                    {
+                        "node": "Respond to Webhook",
+                        "type": "main",
+                        "index": 0
+                    }
+                ]
+            ]
+        }
+    },
+    "active": true,
+    "settings": {
+        "executionOrder": "v1"
+    }
+}
